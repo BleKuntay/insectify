@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insect Classification</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f9;
+      text-align: center;
+    }
+
+    h1, h2 {
+      color: #444;
+    }
+
+    form {
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      width: 300px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #imageContainer {
+      margin-top: 20px;
+    }
+
+    canvas {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      max-width: 50%;
+      height: auto;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #result {
+      color: #007BFF;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Insect Classification</h1>
+
+  <form id="uploadForm">
+    <label for="fileInput">Select an image:</label>
+    <input type="file" id="fileInput" accept="image/*" required>
+    <button type="submit">Upload and Predict</button>
+  </form>
+
+  <h2>Prediction Result</h2>
+  <p id="result"></p>
+
+  <div id="imageContainer">
+    <canvas id="imageCanvas"></canvas>
+  </div>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const resultElement = document.getElementById('result');
+    const canvas = document.getElementById('imageCanvas');
+    const ctx = canvas.getContext('2d');
+
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a file!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('http://127.0.0.1:5000/predict', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const { predicted_class, confidence, bounding_box } = data;
+
+        resultElement.innerHTML = `Class: ${predicted_class}, Confidence: ${confidence}%`;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = new Image();
+          img.onload = function () {
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            const [x_min, y_min, x_max, y_max] = bounding_box;
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x_min, y_min, x_max - x_min, y_max - y_min);
+
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "red";
+            ctx.fillText(`${predicted_class}: ${confidence.toFixed(2)}%`, x_min, y_min - 10);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+        resultElement.style.color = "red";
+      }
+    });
+  </script>
+</body>
+</html>
